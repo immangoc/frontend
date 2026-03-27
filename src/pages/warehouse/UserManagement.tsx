@@ -42,7 +42,7 @@ const ROLE_MAP: Record<string, { label: string; color: string }> = {
 
 const EMPTY_FORM = { name: '', email: '', phone: '', company: '', role: 'customer' as User['role'], password: '' };
 
-export default function UserManagement() {
+export default function UserManagement({ showLayout = true }: { showLayout?: boolean }) {
   const { accessToken, user: currentUser } = useWarehouseAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,9 +146,8 @@ export default function UserManagement() {
     customer: users.filter(u => u.role === 'customer').length,
   };
 
-  return (
-    <WarehouseLayout>
-      <div className="space-y-6">
+  const content = (
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -374,7 +373,8 @@ export default function UserManagement() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </WarehouseLayout>
+    </div>
   );
+
+  return showLayout ? <WarehouseLayout>{content}</WarehouseLayout> : content;
 }

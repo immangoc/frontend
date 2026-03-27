@@ -1,0 +1,607 @@
+import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Download, RefreshCw, RotateCcw, Shield, KeyRound, FileText } from 'lucide-react';
+import WarehouseLayout from '../../../../components/warehouse/WarehouseLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { Button } from '../../../../components/ui/button';
+import { Input } from '../../../../components/ui/input';
+import { Switch } from '../../../../components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
+import { Textarea } from '../../../../components/ui/textarea';
+import { Badge } from '../../../../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
+import ChatBox from '../../../../components/warehouse/ChatBox';
+import { useWarehouseAuth } from '../../../../contexts/WarehouseAuthContext';
+import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
+
+type Activity = {
+  id: string;
+  user_id: string;
+  user_name: string;
+  action_type: string;
+  entity_type: string;
+  entity_id: string;
+  description: string;
+  created_at: string;
+};
+
+type Preferences = {
+  language?: string;
+  theme?: string;
+  notifications?: Record<string, boolean>;
+};
+
+type Me = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  company?: string;
+  phone?: string;
+  address?: string;
+  preferences?: Preferences | null;
+};
+
+function splitHoTen(fullName: string) {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { ho: '', ten: parts[0] || '' };
+  return { ho: parts.slice(0, -1).join(' '), ten: parts[parts.length - 1] || '' };
+}
+
+function downloadJson(filename: string, obj: any) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+export default function AdminAccountMergedSection() {
+  const { accessToken, user } = useWarehouseAuth();
+
+  const apiUrl = `https://${projectId}.supabase.co/functions/v1/make-server-ce1eb60c`;
+  const headers = useMemo(
+    () => ({
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken || publicAnonKey}`,
+    }),
+    [accessToken],
+  );
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [me, setMe] = useState<Me | null>(null);
+
+  const [ho, setHo] = useState('');
+  const [ten, setTen] = useState('');
+  const [company, setCompany] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // password
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPwd, setChangingPwd] = useState(false);
+
+  // preferences
+  const [prefs, setPrefs] = useState<Preferences>({
+    language: 'vi',
+    theme: 'light',
+    notifications: {},
+  });
+  const [savingPrefs, setSavingPrefs] = useState(false);
+
+  // activities
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesError, setActivitiesError] = useState('');
+  const [activityKeyword, setActivityKeyword] = useState('');
+
+  // backup
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupError, setBackupError] = useState('');
+  const [backupOpen, setBackupOpen] = useState(false);
+
+  const notificationKeys = useMemo(() => {
+    const base = prefs.notifications || {};
+    const keys = Object.keys(base);
+    // đảm bảo có đủ một số mục cơ bản
+    const fallback = ['new_orders', 'low_stock', 'weekly_report', 'system_alerts'];
+    for (const k of fallback) if (!keys.includes(k)) keys.push(k);
+    return keys;
+  }, [prefs.notifications]);
+
+  const fetchAll = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [meRes, prefRes, actsRes] = await Promise.all([
+        fetch(`${apiUrl}/auth/me`, { headers }),
+        fetch(`${apiUrl}/auth/preferences`, { headers }),
+        fetch(`${apiUrl}/activities?limit=200`, { headers }),
+      ]);
+      const meData = await meRes.json();
+      const prefData = await prefRes.json();
+      const actsData = await actsRes.json();
+      if (!meRes.ok) throw new Error(meData.error || 'Lỗi lấy thông tin cá nhân');
+      if (!prefRes.ok) throw new Error(prefData.error || 'Lỗi lấy preferences');
+      if (!actsRes.ok) throw new Error(actsData.error || 'Lỗi lấy nhật ký hoạt động');
+
+      setMe(meData);
+      const { ho: _ho, ten: _ten } = splitHoTen(meData.name || '');
+      setHo(_ho);
+      setTen(_ten);
+      setCompany(meData.company || '');
+      setPhone(meData.phone || '');
+      setAddress(meData.address || '');
+
+      setPrefs(prefData.preferences || { language: 'vi', theme: 'light', notifications: {} });
+      setActivities(actsData.activities || []);
+    } catch (e: any) {
+      setError(e.message || 'Lỗi không xác định');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshActivities = async () => {
+    setActivitiesLoading(true);
+    setActivitiesError('');
+    try {
+      const res = await fetch(`${apiUrl}/activities?limit=200`, { headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lỗi lấy nhật ký hoạt động');
+      setActivities(data.activities || []);
+    } catch (e: any) {
+      setActivitiesError(e.message || 'Lỗi không xác định');
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredActivities = useMemo(() => {
+    const k = activityKeyword.trim().toLowerCase();
+    if (!k) return activities;
+    return activities.filter((a) => `${a.user_name} ${a.description} ${a.action_type} ${a.entity_type}`.toLowerCase().includes(k));
+  }, [activities, activityKeyword]);
+
+  const saveProfile = async () => {
+    setSavingProfile(true);
+    setError('');
+    try {
+      const fullName = `${ho} ${ten}`.trim().replace(/\s+/g, ' ');
+      if (!fullName) throw new Error('Họ và tên không được để trống');
+
+      const payload = {
+        name: fullName,
+        company,
+        phone,
+        address,
+      };
+      const res = await fetch(`${apiUrl}/auth/profile`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lỗi cập nhật thông tin');
+      await fetchAll();
+      alert('Cập nhật thông tin thành công');
+    } catch (e: any) {
+      setError(e.message || 'Lỗi không xác định');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const changePassword = async () => {
+    setChangingPwd(true);
+    try {
+      if (!currentPassword || !newPassword || !confirmPassword) throw new Error('Vui lòng nhập đầy đủ mật khẩu');
+      if (newPassword !== confirmPassword) throw new Error('Xác nhận mật khẩu không khớp');
+      if (newPassword.length < 6) throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự');
+
+      const res = await fetch(`${apiUrl}/auth/change-password`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lỗi đổi mật khẩu');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      alert('Đổi mật khẩu thành công');
+    } catch (e: any) {
+      alert(e.message || 'Lỗi không xác định');
+    } finally {
+      setChangingPwd(false);
+    }
+  };
+
+  const savePrefs = async () => {
+    setSavingPrefs(true);
+    try {
+      const payload: Preferences = {
+        language: prefs.language || 'vi',
+        theme: prefs.theme || 'light',
+        notifications: prefs.notifications || {},
+      };
+      const res = await fetch(`${apiUrl}/auth/preferences`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lỗi cập nhật preferences');
+      await fetchAll();
+      alert('Cập nhật tuỳ chọn hiển thị & thông báo thành công');
+    } catch (e: any) {
+      setError(e.message || 'Lỗi không xác định');
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
+  const doBackup = async () => {
+    setBackupLoading(true);
+    setBackupError('');
+    try {
+      const res = await fetch(`${apiUrl}/admin/backup`, { headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lỗi sao lưu dữ liệu');
+      downloadJson(`backup_${new Date().toISOString().slice(0, 10)}.json`, data);
+      setBackupOpen(false);
+    } catch (e: any) {
+      setBackupError(e.message || 'Lỗi không xác định');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  return (
+    <WarehouseLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Quản lý tài khoản & cấu hình</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              Gộp xác thực, nhật ký hoạt động và sao lưu dữ liệu. Giao diện tối ưu theo ảnh tham chiếu.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={fetchAll} disabled={loading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Đang tải...' : 'Làm mới'}
+            </Button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-lg p-4 flex items-center gap-2 text-red-700 dark:text-red-300">
+            <AlertCircle className="w-5 h-5" />
+            <span className="flex-1">{error}</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                Thông tin cá nhân
+              </CardTitle>
+              <div className="text-xs text-gray-500 mt-1">Email (không chỉnh sửa) và các trường profile.</div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-gray-700">Họ</div>
+                  <Input value={ho} onChange={(e) => setHo(e.target.value)} placeholder="VD: Nguyễn" />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-gray-700">Tên</div>
+                  <Input value={ten} onChange={(e) => setTen(e.target.value)} placeholder="VD: Văn A" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700">Email</div>
+                <Input value={me?.email || user?.email || ''} disabled />
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700">Số điện thoại</div>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0901234567" />
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700">Công ty</div>
+                <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Cty TNHH..." />
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700">Địa chỉ</div>
+                <Textarea
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="VD: 123 Đường..., Quận..., TP.HCM"
+                  className="min-h-[90px]"
+                />
+              </div>
+
+              <div className="pt-2">
+                <Button onClick={saveProfile} disabled={savingProfile} className="bg-blue-900 hover:bg-blue-800 text-white w-full">
+                  {savingProfile ? (
+                    <>
+                      <RotateCcw className="w-4 h-4 mr-2 animate-spin" />
+                      Đang lưu...
+                    </>
+                  ) : (
+                    'Lưu thay đổi'
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-blue-600" />
+                Bảo mật
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700">Mật khẩu hiện tại</div>
+                <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Nhập mật khẩu hiện tại" />
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700">Mật khẩu mới</div>
+                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Tối thiểu 6 ký tự" />
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700">Xác nhận mật khẩu</div>
+                <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Nhập lại mật khẩu mới" />
+              </div>
+              <Button onClick={changePassword} disabled={changingPwd} className="bg-red-600 hover:bg-red-700 text-white w-full">
+                <KeyRound className="w-4 h-4 mr-2" />
+                {changingPwd ? 'Đang đổi...' : 'Đổi mật khẩu'}
+              </Button>
+              <div className="text-xs text-gray-500">
+                Tip: phần này gọi endpoint `auth/change-password` trong Edge Function.
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BellIconPlaceholder />
+                Thông báo
+              </CardTitle>
+              <div className="text-xs text-gray-500 mt-1">Bật/tắt các kênh thông báo hiển thị.</div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {notificationKeys.map((k) => (
+                <div key={k} className="flex items-center justify-between gap-3">
+                  <div className="text-sm text-gray-700">
+                    {k === 'new_orders' ? 'Đơn hàng mới' : k === 'low_stock' ? 'Cảnh báo tồn kho' : k === 'weekly_report' ? 'Báo cáo hàng tuần' : k === 'system_alerts' ? 'Cảnh báo hệ thống' : k}
+                  </div>
+                  <Switch
+                    checked={Boolean(prefs.notifications?.[k])}
+                    onCheckedChange={(checked) =>
+                      setPrefs((prev) => ({
+                        ...prev,
+                        notifications: {
+                          ...(prev.notifications || {}),
+                          [k]: Boolean(checked),
+                        },
+                      }))
+                    }
+                  />
+                </div>
+              ))}
+
+              <Button onClick={savePrefs} disabled={savingPrefs} className="bg-blue-900 hover:bg-blue-800 text-white w-full">
+                {savingPrefs ? 'Đang lưu...' : 'Lưu tuỳ chọn thông báo'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RotateCcw className="w-5 h-5 text-blue-600" />
+                Tùy chọn hiển thị
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700">Ngôn ngữ</div>
+                <Select value={prefs.language || 'vi'} onValueChange={(v) => setPrefs((p) => ({ ...p, language: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vi">Tiếng Việt</SelectItem>
+                    <SelectItem value="en">English</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700">Giao diện</div>
+                <Select value={prefs.theme || 'light'} onValueChange={(v) => setPrefs((p) => ({ ...p, theme: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Sáng</SelectItem>
+                    <SelectItem value="dark">Tối</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="text-xs text-gray-500">
+                Hiện tại UI theme đổi thực tế sẽ được triển khai ở bước sau (đang lưu cấu hình).
+              </div>
+              <Button onClick={savePrefs} disabled={savingPrefs} className="bg-blue-900 hover:bg-blue-800 text-white w-full">
+                {savingPrefs ? 'Đang lưu...' : 'Lưu giao diện & ngôn ngữ'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                Nhật ký hoạt động
+              </CardTitle>
+              <div className="text-xs text-gray-500 mt-1">Theo dõi các thao tác gần đây trong hệ thống.</div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <Input value={activityKeyword} onChange={(e) => setActivityKeyword(e.target.value)} placeholder="Tìm theo mô tả..." />
+                <Button variant="outline" onClick={refreshActivities} disabled={activitiesLoading}>
+                  <RefreshCw className={`w-4 h-4 mr-2 ${activitiesLoading ? 'animate-spin' : ''}`} />
+                  Làm mới
+                </Button>
+              </div>
+
+              {activitiesError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                  {activitiesError}
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Loại</TableHead>
+                      <TableHead>Đối tượng</TableHead>
+                      <TableHead>Mô tả</TableHead>
+                      <TableHead>Thời gian</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredActivities.slice(0, 8).map((a) => (
+                      <TableRow key={a.id}>
+                        <TableCell>
+                          <Badge variant="outline">{a.action_type}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {a.entity_type}: {a.entity_id}
+                        </TableCell>
+                        <TableCell className="text-sm">{a.description}</TableCell>
+                        <TableCell className="text-sm text-gray-500 whitespace-nowrap">
+                          {new Date(a.created_at).toLocaleDateString('vi-VN')}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredActivities.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-gray-500 py-10">
+                          Không có dữ liệu phù hợp
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="w-5 h-5 text-blue-600" />
+                Sao lưu dữ liệu
+              </CardTitle>
+              <div className="text-xs text-gray-500 mt-1">Tải xuống JSON gồm users/containers/activities/...</div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {backupError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+                  {backupError}
+                </div>
+              )}
+
+              <Button
+                onClick={() => setBackupOpen(true)}
+                className="bg-blue-900 hover:bg-blue-800 text-white w-full"
+                disabled={backupLoading}
+              >
+                {backupLoading ? 'Đang sao lưu...' : 'Tải bản sao lưu'}
+              </Button>
+
+              <Dialog open={backupOpen} onOpenChange={(o) => setBackupOpen(o)}>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Xác nhận sao lưu</DialogTitle>
+                    <DialogDescription>
+                      Hệ thống sẽ gọi endpoint `admin/backup` và tải file JSON về máy bạn.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setBackupOpen(false)}>
+                      Hủy
+                    </Button>
+                    <Button
+                      className="bg-blue-900 hover:bg-blue-800 text-white"
+                      onClick={doBackup}
+                      disabled={backupLoading}
+                    >
+                      {backupLoading ? 'Đang sao lưu...' : 'Sao lưu'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-600" />
+              Chat hỗ trợ (Chatbox)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="relative">
+              <ChatBox />
+              <div className="h-[520px]" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </WarehouseLayout>
+  );
+}
+
+function BellIconPlaceholder() {
+  // Chèn icon “chuông” bằng SVG đơn giản để tránh phụ thuộc thêm icon pack.
+  return (
+    <span className="inline-flex w-5 h-5 items-center justify-center text-blue-600" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2Z"
+          fill="currentColor"
+        />
+        <path
+          d="M18 16v-5c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 1 0-3 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2h16l-2-2Z"
+          fill="currentColor"
+        />
+      </svg>
+    </span>
+  );
+}
+

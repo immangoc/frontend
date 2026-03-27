@@ -10,6 +10,7 @@ import PlannerDashboard from './pages/warehouse/role/PlannerDashboard';
 import OperatorDashboard from './pages/warehouse/role/OperatorDashboard';
 import CustomerDashboard from './pages/warehouse/role/CustomerDashboard';
 import ProtectedRoute from './components/warehouse/ProtectedRoute';
+import AdminSectionPlaceholder from './pages/warehouse/role/AdminSectionPlaceholder';
 
 // Public Pages
 import HomePage from './pages/HomePage';
@@ -66,6 +67,14 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminWarehouseDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/warehouse/admin/section/:slug"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminSectionPlaceholder />
               </ProtectedRoute>
             }
           />

@@ -1,24 +1,24 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { useEffect, useMemo, useState } from 'react';
 import { useWarehouseAuth } from '../../../contexts/WarehouseAuthContext';
 import {
   Container, Users, TrendingUp, Package, BarChart3, Calendar,
-  Activity, Settings, Bell, FileText, Truck, RefreshCw, AlertCircle,
+  Activity, RefreshCw, AlertCircle, Download, FileText, PieChart, Pie,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
+import { Badge } from '../../../components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import WarehouseLayout from '../../../components/warehouse/WarehouseLayout';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import { Link } from 'react-router';
-
-const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444'];
 
 export default function AdminDashboard() {
   const { user, token } = useWarehouseAuth();
   const [stats, setStats] = useState<any>(null);
-  const [activities, setActivities] = useState<any[]>([]);
   const [userCount, setUserCount] = useState<number>(0);
+  const [containers, setContainers] = useState<any[]>([]);
+  const [fees, setFees] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -29,18 +29,25 @@ export default function AdminDashboard() {
     setLoading(true);
     setError('');
     try {
-      const [statsRes, usersRes] = await Promise.all([
+      const [statsRes, usersRes, containersRes, feesRes] = await Promise.all([
         fetch(`${apiUrl}/dashboard/stats`, { headers }),
         fetch(`${apiUrl}/users`, { headers }),
+        fetch(`${apiUrl}/containers`, { headers }),
+        fetch(`${apiUrl}/fees`, { headers }),
       ]);
       const statsData = await statsRes.json();
       const usersData = await usersRes.json();
+      const containersData = await containersRes.json();
+      const feesData = await feesRes.json();
 
       if (!statsRes.ok) throw new Error(statsData.error || 'Lỗi lấy thống kê');
 
       setStats(statsData.stats);
-      setActivities(statsData.activities || []);
       setUserCount(usersData.users?.length || 0);
+      if (!containersRes.ok) throw new Error(containersData.error || 'Lỗi lấy container');
+      if (!feesRes.ok) throw new Error(feesData.error || 'Lỗi lấy cước phí');
+      setContainers(containersData.containers || []);
+      setFees(feesData.fees || null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -50,6 +57,92 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchData(); }, [token]);
 
+  const last12Months = useMemo(() => {
+    const end = new Date();
+    const start = new Date(end);
+    start.setMonth(end.getMonth() - 11);
+    start.setDate(1);
+    const labels = Array.from({ length: 12 }, (_, i) => `T${i + 1}`);
+    const startYear = start.getFullYear();
+    const startMonth = start.getMonth();
+    const monthIndex = (d: Date) =>
+      (d.getFullYear() - startYear) * 12 + (d.getMonth() - startMonth);
+    return { start, end, labels, monthIndex };
+  }, []);
+
+  const rateFor = (cargoType: string) => {
+    const by = fees?.ratePerKgByCargoType || {};
+    const v = by?.[cargoType];
+    if (typeof v === 'number') return v;
+    return typeof fees?.ratePerKgDefault === 'number' ? fees.ratePerKgDefault : 0;
+  };
+
+  const costRate = typeof fees?.costRate === 'number' ? fees.costRate : 0.35;
+
+  const revenueByMonth = useMemo(() => {
+    const arr = Array.from({ length: 12 }, () => 0);
+    for (const c of containers) {
+      if (c.status !== 'exported' || !c.export_date) continue;
+      const d = new Date(c.export_date);
+      const idx = last12Months.monthIndex(d);
+      if (idx < 0 || idx > 11) continue;
+      const revenue = Number(c.weight_kg || 0) * rateFor(c.cargo_type);
+      arr[idx] += revenue;
+    }
+    return arr;
+  }, [containers, last12Months]);
+
+  const ordersByMonth = useMemo(() => {
+    const arr = Array.from({ length: 12 }, () => 0);
+    for (const c of containers) {
+      if (c.status !== 'exported' || !c.export_date) continue;
+      const d = new Date(c.export_date);
+      const idx = last12Months.monthIndex(d);
+      if (idx < 0 || idx > 11) continue;
+      arr[idx] += 1;
+    }
+    return arr;
+  }, [containers, last12Months]);
+
+  const revenueChartData = useMemo(
+    () => revenueByMonth.map((v, i) => ({ name: last12Months.labels[i], value: Math.round(v) })),
+    [revenueByMonth, last12Months.labels],
+  );
+
+  const ordersChartData = useMemo(
+    () => ordersByMonth.map((v, i) => ({ name: last12Months.labels[i], value: v })),
+    [ordersByMonth, last12Months.labels],
+  );
+
+  const topProducts = useMemo(() => {
+    const map = new Map<string, { cargo_type: string; count: number; revenue: number }>();
+    for (const c of containers) {
+      if (c.status !== 'exported') continue;
+      const cargo = c.cargo_type || 'Khác';
+      const prev = map.get(cargo) || { cargo_type: cargo, count: 0, revenue: 0 };
+      prev.count += 1;
+      prev.revenue += Number(c.weight_kg || 0) * rateFor(cargo);
+      map.set(cargo, prev);
+    }
+    return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 6);
+  }, [containers, fees]);
+
+  const recentExports = useMemo(() => {
+    const list = containers
+      .filter((c) => c.status === 'exported' && c.export_date)
+      .sort((a, b) => new Date(b.export_date).getTime() - new Date(a.export_date).getTime())
+      .slice(0, 6)
+      .map((c) => ({
+        id: c.id,
+        container_number: c.container_number,
+        customer_name: c.customer_name || '—',
+        export_date: c.export_date,
+        revenue: Math.round(Number(c.weight_kg || 0) * rateFor(c.cargo_type)),
+        cargo_type: c.cargo_type,
+      }));
+    return list;
+  }, [containers, fees]);
+
   const statCards = stats ? [
     { title: 'Tổng Container', value: stats.total, icon: Container, color: 'bg-blue-500', sub: 'container trong hệ thống' },
     { title: 'Đang lưu kho', value: stats.in_storage, icon: Package, color: 'bg-indigo-500', sub: 'container đang lưu' },
@@ -57,30 +150,13 @@ export default function AdminDashboard() {
     { title: 'Người dùng', value: userCount, icon: Users, color: 'bg-green-500', sub: 'tài khoản trong hệ thống' },
   ] : [];
 
-  const barData = stats ? [
-    { name: 'Chờ xử lý', value: stats.pending, fill: '#f59e0b' },
-    { name: 'Lưu kho', value: stats.in_storage, fill: '#3b82f6' },
-    { name: 'Đã xuất', value: stats.exported, fill: '#22c55e' },
-  ] : [];
-
-  const pieData = stats?.by_zone
-    ? Object.entries(stats.by_zone).map(([name, value]) => ({ name: `Zone ${name}`, value }))
-    : [];
-
-  const quickActions = [
-    { title: 'Quản lý Container', icon: Container, href: '/warehouse/containers', color: 'bg-blue-500' },
-    { title: 'Quản lý Người dùng', icon: Users, href: '/warehouse/users', color: 'bg-green-500' },
-    { title: 'Báo cáo', icon: FileText, href: '/warehouse/containers', color: 'bg-orange-500' },
-    { title: 'Cài đặt', icon: Settings, href: '/warehouse/admin/dashboard', color: 'bg-gray-500' },
-  ];
-
   return (
     <WarehouseLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard Quản trị viên</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
               Chào mừng, <span className="font-semibold">{user?.name}</span> · Dữ liệu thời gian thực từ Supabase
             </p>
@@ -90,9 +166,9 @@ export default function AdminDashboard() {
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Làm mới
             </Button>
-            <Link to="/warehouse/containers">
+            <Link to="/warehouse/admin/section/bao-cao-thong-ke">
               <Button className="gap-2 bg-blue-700 hover:bg-blue-800">
-                <Container className="w-4 h-4" /> Quản lý Container
+                <FileText className="w-4 h-4" /> Báo cáo
               </Button>
             </Link>
           </div>
@@ -115,135 +191,165 @@ export default function AdminDashboard() {
           <>
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {statCards.map((stat, index) => (
-                <motion.div key={stat.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.title}</p>
-                          <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stat.value}</h3>
-                          <p className="text-xs text-gray-500 mt-1">{stat.sub}</p>
-                        </div>
-                        <div className={`${stat.color} p-3 rounded-xl`}>
-                          <stat.icon className="w-6 h-6 text-white" />
-                        </div>
+              {statCards.map((stat) => (
+                <Card key={stat.title}>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.title}</p>
+                        <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stat.value}</h3>
+                        <p className="text-xs text-gray-500 mt-1">{stat.sub}</p>
                       </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+                      <div className={`${stat.color} p-3 rounded-xl`}>
+                        <stat.icon className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
 
-            {/* Charts */}
+            {/* Charts row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Bar Chart - Trạng thái */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5" /> Thống kê theo trạng thái
+                    <BarChart3 className="w-5 h-5 text-blue-600" />
+                    Doanh thu 12 tháng gần đây
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {barData.length > 0 && barData.some(d => d.value > 0) ? (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={barData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <div className="h-[260px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={revenueChartData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                         <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                         <Tooltip />
-                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                          {barData.map((entry, i) => (
-                            <Cell key={i} fill={entry.fill} />
-                          ))}
-                        </Bar>
-                      </BarChart>
+                        <Area type="monotone" dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.25} />
+                      </AreaChart>
                     </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-[220px] text-gray-400">
-                      Chưa có dữ liệu container
-                    </div>
-                  )}
+                  </div>
+                  <div className="mt-3 text-sm text-gray-600">
+                    Tổng doanh thu ước tính: <span className="font-semibold">{revenueChartData.reduce((s, x) => s + x.value, 0).toLocaleString('vi-VN')}</span>
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* Pie Chart - Theo khu vực */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Activity className="w-5 h-5" /> Phân bổ theo khu vực
+                    <Activity className="w-5 h-5 text-purple-600" />
+                    Số lượng đơn hàng 12 tháng gần đây
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {pieData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
-                          {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                        </Pie>
+                  <div className="h-[260px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={ordersChartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                         <Tooltip />
-                        <Legend />
-                      </PieChart>
+                        <Bar dataKey="value" fill="#7c3aed" radius={[6, 6, 0, 0]} />
+                      </BarChart>
                     </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-[220px] text-gray-400">
-                      Chưa có dữ liệu container
-                    </div>
-                  )}
+                  </div>
+                  <div className="mt-3 text-sm text-gray-600">
+                    Tổng số đơn: <span className="font-semibold">{ordersChartData.reduce((s, x) => s + x.value, 0)}</span>
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Activity className="w-5 h-5" /> Thao tác nhanh</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {quickActions.map((action, index) => (
-                    <motion.div key={action.title} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.05 }}>
-                      <Link to={action.href}
-                        className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-all group">
-                        <div className={`${action.color} p-4 rounded-lg group-hover:scale-110 transition-transform`}>
-                          <action.icon className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-sm font-medium text-center text-gray-700 dark:text-gray-300">{action.title}</span>
-                      </Link>
-                    </motion.div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activities */}
-            {activities.length > 0 && (
+            {/* Tables row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Activity className="w-5 h-5" /> Hoạt động gần đây</CardTitle>
+                <CardHeader className="flex items-start justify-between gap-3">
+                  <CardTitle>Sản phẩm bán chạy</CardTitle>
+                  <Link to="/warehouse/admin/section/bao-cao-thong-ke">
+                    <Button variant="outline" size="sm">Xem tất cả</Button>
+                  </Link>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {activities.map((activity, index) => (
-                      <motion.div key={activity.id || index}
-                        initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}
-                        className="flex items-start gap-3 pb-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
-                        <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                          activity.action_type === 'create' ? 'bg-green-500' :
-                          activity.action_type === 'delete' ? 'bg-red-500' : 'bg-blue-500'
-                        }`} />
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-900 dark:text-white">{activity.description}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {new Date(activity.created_at).toLocaleString('vi-VN')}
-                          </p>
-                        </div>
-                      </motion.div>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Sản phẩm</TableHead>
+                          <TableHead className="text-right">Số lần xuất</TableHead>
+                          <TableHead className="text-right">Doanh thu</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {topProducts.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center text-gray-500 py-10">
+                              Chưa có dữ liệu
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          topProducts.map((p) => (
+                            <TableRow key={p.cargo_type}>
+                              <TableCell className="font-semibold">{p.cargo_type}</TableCell>
+                              <TableCell className="text-right">{p.count}</TableCell>
+                              <TableCell className="text-right">{Math.round(p.revenue).toLocaleString('vi-VN')}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
                   </div>
                 </CardContent>
               </Card>
-            )}
+
+              <Card>
+                <CardHeader className="flex items-start justify-between gap-3">
+                  <CardTitle>Đơn hàng gần nhất</CardTitle>
+                  <Link to="/warehouse/admin/section/bao-cao-thong-ke">
+                    <Button variant="outline" size="sm">Xem tất cả</Button>
+                  </Link>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Mã đơn</TableHead>
+                          <TableHead>Khách hàng</TableHead>
+                          <TableHead>Ngày xuất</TableHead>
+                          <TableHead className="text-right">Trạng thái</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {recentExports.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center text-gray-500 py-10">
+                              Chưa có dữ liệu
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          recentExports.map((o) => (
+                            <TableRow key={o.id}>
+                              <TableCell className="font-mono font-semibold">{o.container_number}</TableCell>
+                              <TableCell className="text-sm">{o.customer_name}</TableCell>
+                              <TableCell className="text-sm text-gray-500 whitespace-nowrap">
+                                {new Date(o.export_date).toLocaleDateString('vi-VN')}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant="outline" className="bg-green-50 border-green-200 text-green-700">
+                                  Đã xuất
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </>
         )}
       </div>
