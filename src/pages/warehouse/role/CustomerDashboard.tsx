@@ -5,12 +5,11 @@ import {
   Package,
   Clock,
   DollarSign,
-  TrendingUp,
   MapPin,
   FileText,
-  Download,
   Search,
-  Bell
+  Bell,
+  ShieldCheck,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -35,7 +34,7 @@ export default function CustomerDashboard() {
     },
     { 
       title: 'Thanh toán chờ', 
-      value: '$12,540', 
+      value: '₫12.5M', 
       icon: DollarSign, 
       color: 'bg-green-500'
     },
@@ -51,62 +50,101 @@ export default function CustomerDashboard() {
     {
       id: 1,
       code: 'CMAU4567890',
-      status: 'in-storage',
+      status: 'Đang lưu kho',
+      badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
       location: 'Khu A - Vị trí 23',
       arrivalDate: '15/11/2024',
       daysInStorage: 12,
       size: '40ft',
-      type: 'Dry',
-      fees: '$450'
+      type: 'Khô',
+      fee: '₫450K',
     },
     {
       id: 2,
       code: 'HLCU3456789',
-      status: 'ready-export',
+      status: 'Sẵn sàng xuất',
+      badge: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
       location: 'Khu B - Vị trí 45',
       arrivalDate: '20/11/2024',
       daysInStorage: 7,
       size: '20ft',
-      type: 'Dry',
-      fees: '$280'
+      type: 'Khô',
+      fee: '₫380K',
     },
     {
       id: 3,
       code: 'MSCU2345678',
-      status: 'in-storage',
+      status: 'Đang lưu kho',
+      badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
       location: 'Khu C - Vị trí 12',
       arrivalDate: '10/11/2024',
       daysInStorage: 17,
       size: '40ft',
-      type: 'Reefer',
-      fees: '$720'
+      type: 'Lạnh',
+      fee: '₫720K',
+    },
+    {
+      id: 4,
+      code: 'VSCU1122334',
+      status: 'Đang xuất',
+      badge: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+      location: 'Khu B - Vị trí 08',
+      arrivalDate: '22/11/2024',
+      daysInStorage: 5,
+      size: '20ft',
+      type: 'Khô',
+      fee: '₫310K',
+    },
+    {
+      id: 5,
+      code: 'TIPU9988776',
+      status: 'Đang lưu kho',
+      badge: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+      location: 'Khu D - Vị trí 19',
+      arrivalDate: '01/11/2024',
+      daysInStorage: 24,
+      size: '40ft',
+      type: 'Hỏng',
+      fee: '₫1.1M',
+    },
+    {
+      id: 6,
+      code: 'TGHU2233445',
+      status: 'Đang lưu kho',
+      badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+      location: 'Khu E - Vị trí 03',
+      arrivalDate: '08/11/2024',
+      daysInStorage: 16,
+      size: '20ft',
+      type: 'Dễ vỡ',
+      fee: '₫620K',
     },
   ];
 
   const recentOrders = [
     {
       id: '#ORD-2024-1156',
-      type: 'import',
+      type: 'Nhập kho',
       date: '25/11/2024',
-      status: 'completed',
+      status: 'Hoàn thành',
       containers: 2,
-      total: '$890'
+      total: '₫890K'
     },
     {
       id: '#ORD-2024-1089',
-      type: 'export',
+      type: 'Xuất kho',
       date: '18/11/2024',
-      status: 'in-progress',
+      status: 'Đang xử lý',
       containers: 1,
-      total: '$450'
+      total: '₫450K'
     },
     {
       id: '#ORD-2024-1034',
-      type: 'import',
+      type: 'Nhập kho',
       date: '12/11/2024',
-      status: 'completed',
+      status: 'Hoàn thành',
       containers: 3,
-      total: '$1,340'
+      total: '₫1.34M'
     },
   ];
 
@@ -119,17 +157,14 @@ export default function CustomerDashboard() {
   return (
     <WarehouseLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Dashboard Khách hàng
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Chào mừng <span className="font-semibold">{user?.name}</span> từ <span className="font-semibold">{user?.company || 'Công ty của bạn'}</span>
+            <h1 className="page-title">Dashboard Khách hàng</h1>
+            <p className="page-subtitle">
+              Chào mừng <span className="font-semibold">{user?.name || 'Khách hàng'}</span> đến với kho hàng của bạn.
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3 items-center">
             <Button variant="outline" className="gap-2">
               <Bell className="w-4 h-4" />
               Thông báo
@@ -141,241 +176,158 @@ export default function CustomerDashboard() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        {stat.title}
-                      </p>
-                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                        {stat.value}
-                      </h3>
-                    </div>
-                    <div className={`${stat.color} p-3 rounded-lg`}>
-                      <stat.icon className="w-6 h-6 text-white" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Search Container */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <Input
-                  placeholder="Tìm kiếm container theo mã số..."
-                  className="pl-10 h-12"
-                />
-              </div>
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
-                Tra cứu
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* My Containers */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Container className="w-5 h-5" />
-              Container của tôi
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {myContainers.map((container, index) => (
-                <motion.div
-                  key={container.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-all"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4 flex-1">
-                      <div className="p-3 bg-blue-500 rounded-lg">
-                        <Container className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                            {container.code}
-                          </h3>
-                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                            container.status === 'ready-export'
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                          }`}>
-                            {container.status === 'ready-export' ? 'Sẵn sàng xuất' : 'Đang lưu kho'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                          <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
-                            <MapPin className="w-4 h-4" />
-                            <span>{container.location}</span>
-                          </div>
-                          <div className="text-gray-600 dark:text-gray-400">
-                            <span className="font-medium">Loại:</span> {container.size} {container.type}
-                          </div>
-                          <div className="text-gray-600 dark:text-gray-400">
-                            <span className="font-medium">Ngày nhập:</span> {container.arrivalDate}
-                          </div>
-                          <div className="text-gray-600 dark:text-gray-400">
-                            <span className="font-medium">Thời gian lưu:</span> {container.daysInStorage} ngày
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="text-xl font-bold text-gray-900 dark:text-white">
-                        {container.fees}
-                      </div>
-                      <Button size="sm" variant="outline">
-                        Chi tiết
-                      </Button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Orders & Notifications */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Orders */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Đơn hàng gần đây
-                </CardTitle>
-                <Button variant="link" size="sm">
-                  Xem tất cả
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recentOrders.map((order, index) => (
-                  <motion.div
-                    key={order.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        order.type === 'import' ? 'bg-green-500' : 'bg-blue-500'
-                      }`}>
-                        <Package className="w-4 h-4 text-white" />
-                      </div>
+        <div className="grid gap-6 xl:grid-cols-[1.7fr_0.95fr]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {stats.map((stat, index) => (
+              <motion.div
+                key={stat.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.08 }}
+              >
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="font-semibold text-gray-900 dark:text-white text-sm">
-                          {order.id}
-                        </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {order.date} • {order.containers} containers
-                        </p>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.title}</p>
+                        <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stat.value}</h3>
+                      </div>
+                      <div className={`${stat.color} p-3 rounded-2xl`}>
+                        <stat.icon className="w-6 h-6 text-white" />
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-900 dark:text-white">
-                        {order.total}
-                      </p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        order.status === 'completed'
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                      }`}>
-                        {order.status === 'completed' ? 'Hoàn thành' : 'Đang xử lý'}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
 
-          {/* Notifications */}
-          <Card>
+          <Card className="h-full">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="w-5 h-5" />
-                Thông báo
+                Thông báo mới
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {notifications.map((notification, index) => (
-                  <motion.div
-                    key={notification.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700"
-                  >
-                    <div className={`w-2 h-2 rounded-full mt-2 ${
-                      notification.type === 'warning' ? 'bg-yellow-500' :
-                      notification.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+            <CardContent className="space-y-4">
+              {notifications.map((notification) => (
+                <div key={notification.id} className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${
+                      notification.type === 'warning'
+                        ? 'bg-yellow-500'
+                        : notification.type === 'success'
+                        ? 'bg-green-500'
+                        : 'bg-blue-500'
                     }`} />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900 dark:text-white">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {notification.time}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                    <p className="text-sm text-gray-900 dark:text-white">{notification.message}</p>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{notification.time}</p>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick Links */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Tra cứu nhanh container</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Tìm container theo mã, trạng thái hoặc vị trí.</p>
+              </div>
+              <div className="relative w-full sm:w-96">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <Input placeholder="Tìm kiếm container..." className="pl-10 h-12" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
-            <CardTitle>Liên kết nhanh</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Tổng hợp kho
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Button variant="outline" className="h-auto flex-col gap-2 p-4">
-                <Download className="w-6 h-6" />
-                <span className="text-sm">Tải tài liệu</span>
-              </Button>
-              <Button variant="outline" className="h-auto flex-col gap-2 p-4">
-                <DollarSign className="w-6 h-6" />
-                <span className="text-sm">Thanh toán</span>
-              </Button>
-              <Button variant="outline" className="h-auto flex-col gap-2 p-4">
-                <FileText className="w-6 h-6" />
-                <span className="text-sm">Báo giá</span>
-              </Button>
-              <Button variant="outline" className="h-auto flex-col gap-2 p-4">
-                <TrendingUp className="w-6 h-6" />
-                <span className="text-sm">Thống kê</span>
-              </Button>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">Container khô</div>
+                <div className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">18</div>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Container hiện có</p>
+              </div>
+              <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">Container lạnh</div>
+                <div className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">5</div>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Container hiện có</p>
+              </div>
+              <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">Container hỏng</div>
+                <div className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">2</div>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Container hiện có</p>
+              </div>
             </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">Container dễ vỡ</div>
+                <div className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">1</div>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Container hiện có</p>
+              </div>
+              <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">Container khác</div>
+                <div className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">4</div>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Container hiện có</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+              <CardTitle className="flex items-center gap-2">
+                <Container className="w-5 h-5" />
+                Container của tôi
+              </CardTitle>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Hiển thị 6 container gần đây, kéo xuống để xem thêm</div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 max-h-[520px] overflow-y-auto pr-2">
+            {myContainers.map((container, index) => (
+              <motion.div
+                key={container.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.08 }}
+                className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="rounded-3xl bg-blue-500 p-3 text-white">
+                      <Container className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{container.code}</h3>
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${container.badge}`}>{container.status}</span>
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm text-gray-600 dark:text-gray-300">
+                        <div className="flex items-center gap-2"><MapPin className="w-4 h-4" />{container.location}</div>
+                        <div>Loại: {container.size} {container.type}</div>
+                        <div>Ngày nhập: {container.arrivalDate}</div>
+                        <div>Thời gian lưu: {container.daysInStorage} ngày</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-3">
+                    <div className="text-xl font-bold text-gray-900 dark:text-white">{container.fee}</div>
+                    <Button size="sm" variant="outline">Chi tiết</Button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </CardContent>
         </Card>
       </div>

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Download, RefreshCw, RotateCcw, Shield, KeyRound, FileText } from 'lucide-react';
+import { AlertCircle, RefreshCw, RotateCcw, Shield, KeyRound, FileText, Bell } from 'lucide-react';
 import WarehouseLayout from '../../../../components/warehouse/WarehouseLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Switch } from '../../../../components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 import { Textarea } from '../../../../components/ui/textarea';
 import { Badge } from '../../../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
@@ -46,15 +45,6 @@ function splitHoTen(fullName: string) {
   const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length <= 1) return { ho: '', ten: parts[0] || '' };
   return { ho: parts.slice(0, -1).join(' '), ten: parts[parts.length - 1] || '' };
-}
-
-function downloadJson(filename: string, obj: any) {
-  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json;charset=utf-8' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(link.href);
 }
 
 export default function AdminAccountMergedSection() {
@@ -101,11 +91,6 @@ export default function AdminAccountMergedSection() {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState('');
   const [activityKeyword, setActivityKeyword] = useState('');
-
-  // backup
-  const [backupLoading, setBackupLoading] = useState(false);
-  const [backupError, setBackupError] = useState('');
-  const [backupOpen, setBackupOpen] = useState(false);
 
   const notificationKeys = useMemo(() => {
     const base = prefs.notifications || {};
@@ -168,6 +153,26 @@ export default function AdminAccountMergedSection() {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Áp dụng theme & ngôn ngữ ngay khi user bấm "Lưu" ở trang này.
+  useEffect(() => {
+    const theme = prefs.theme || 'light';
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    try {
+      localStorage.setItem('ht_ui_theme', theme);
+    } catch {
+      // ignore
+    }
+  }, [prefs.theme]);
+
+  useEffect(() => {
+    const language = prefs.language || 'vi';
+    try {
+      localStorage.setItem('ht_ui_lang', language);
+    } catch {
+      // ignore
+    }
+  }, [prefs.language]);
 
   const filteredActivities = useMemo(() => {
     const k = activityKeyword.trim().toLowerCase();
@@ -245,22 +250,6 @@ export default function AdminAccountMergedSection() {
     }
   };
 
-  const doBackup = async () => {
-    setBackupLoading(true);
-    setBackupError('');
-    try {
-      const res = await fetch(`${apiUrl}/admin/backup`, { headers });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Lỗi sao lưu dữ liệu');
-      downloadJson(`backup_${new Date().toISOString().slice(0, 10)}.json`, data);
-      setBackupOpen(false);
-    } catch (e: any) {
-      setBackupError(e.message || 'Lỗi không xác định');
-    } finally {
-      setBackupLoading(false);
-    }
-  };
-
   return (
     <WarehouseLayout>
       <div className="space-y-6">
@@ -268,7 +257,7 @@ export default function AdminAccountMergedSection() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Quản lý tài khoản & cấu hình</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Gộp xác thực, nhật ký hoạt động và sao lưu dữ liệu. Giao diện tối ưu theo ảnh tham chiếu.
+              Gộp xác thực, nhật ký hoạt động và cấu hình hiển thị. Giao diện tối ưu theo ảnh tham chiếu.
             </p>
           </div>
           <div className="flex gap-2">
@@ -286,7 +275,7 @@ export default function AdminAccountMergedSection() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -347,12 +336,13 @@ export default function AdminAccountMergedSection() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="sticky top-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-blue-600" />
                 Bảo mật
               </CardTitle>
+              <div className="text-xs text-gray-500 mt-1">Quản lý mật khẩu và bảo vệ đăng nhập.</div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -382,10 +372,10 @@ export default function AdminAccountMergedSection() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BellIconPlaceholder />
+                <Bell className="w-5 h-5 text-blue-600" />
                 Thông báo
               </CardTitle>
-              <div className="text-xs text-gray-500 mt-1">Bật/tắt các kênh thông báo hiển thị.</div>
+              <div className="text-xs text-gray-500 mt-1">Bật/tắt các mục thông báo mà bạn muốn nhận.</div>
             </CardHeader>
             <CardContent className="space-y-4">
               {notificationKeys.map((k) => (
@@ -420,6 +410,7 @@ export default function AdminAccountMergedSection() {
                 <RotateCcw className="w-5 h-5 text-blue-600" />
                 Tùy chọn hiển thị
               </CardTitle>
+              <div className="text-xs text-gray-500 mt-1">Chuyển đổi giao diện và ngôn ngữ.</div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -518,54 +509,6 @@ export default function AdminAccountMergedSection() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Download className="w-5 h-5 text-blue-600" />
-                Sao lưu dữ liệu
-              </CardTitle>
-              <div className="text-xs text-gray-500 mt-1">Tải xuống JSON gồm users/containers/activities/...</div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {backupError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
-                  {backupError}
-                </div>
-              )}
-
-              <Button
-                onClick={() => setBackupOpen(true)}
-                className="bg-blue-900 hover:bg-blue-800 text-white w-full"
-                disabled={backupLoading}
-              >
-                {backupLoading ? 'Đang sao lưu...' : 'Tải bản sao lưu'}
-              </Button>
-
-              <Dialog open={backupOpen} onOpenChange={(o) => setBackupOpen(o)}>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Xác nhận sao lưu</DialogTitle>
-                    <DialogDescription>
-                      Hệ thống sẽ gọi endpoint `admin/backup` và tải file JSON về máy bạn.
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setBackupOpen(false)}>
-                      Hủy
-                    </Button>
-                    <Button
-                      className="bg-blue-900 hover:bg-blue-800 text-white"
-                      onClick={doBackup}
-                      disabled={backupLoading}
-                    >
-                      {backupLoading ? 'Đang sao lưu...' : 'Sao lưu'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
         </div>
 
         <Card>
@@ -587,21 +530,4 @@ export default function AdminAccountMergedSection() {
   );
 }
 
-function BellIconPlaceholder() {
-  // Chèn icon “chuông” bằng SVG đơn giản để tránh phụ thuộc thêm icon pack.
-  return (
-    <span className="inline-flex w-5 h-5 items-center justify-center text-blue-600" aria-hidden="true">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2Z"
-          fill="currentColor"
-        />
-        <path
-          d="M18 16v-5c0-3.07-1.64-5.64-4.5-6.32V4a1.5 1.5 0 1 0-3 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2h16l-2-2Z"
-          fill="currentColor"
-        />
-      </svg>
-    </span>
-  );
-}
 

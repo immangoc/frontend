@@ -109,9 +109,16 @@ export default function AdminFeesSection() {
     }
   };
 
-  const cargoRows = useMemo(() => {
-    return cargoTypes.length > 0 ? cargoTypes : [];
-  }, [cargoTypes]);
+  const warehouseRows = useMemo(
+    () => [
+      { key: 'fragile', label: 'Kho dễ vỡ', cargoType: 'Điện tử' },
+      { key: 'other', label: 'Kho khác', cargoType: 'Nông sản' },
+      { key: 'cold', label: 'Kho lạnh', cargoType: 'Thực phẩm đông lạnh' },
+      { key: 'damaged', label: 'Kho hỏng', cargoType: 'Hàng dệt may' },
+      { key: 'dry', label: 'Kho khô', cargoType: 'Hóa chất công nghiệp' },
+    ],
+    [],
+  );
 
   return (
     <WarehouseLayout>
@@ -174,35 +181,36 @@ export default function AdminFeesSection() {
             </div>
 
             <div>
-              <div className="text-sm font-semibold text-gray-900 mb-2">Rate theo từng loại hàng</div>
+              <div className="text-sm font-semibold text-gray-900 mb-2">Rate theo từng loại kho</div>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Loại hàng</TableHead>
+                    <TableHead>Loại kho</TableHead>
                     <TableHead className="text-right">Rate/kg</TableHead>
+                    <TableHead>Ánh xạ loại hàng</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading ? null : cargoRows.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell className="font-semibold">{t.name}</TableCell>
-                      <TableCell className="text-right">
-                        <Input
-                          type="number"
-                          step={1}
-                          value={rateFor(t.name)}
-                          onChange={(e) => setRateFor(t.name, Number(e.target.value))}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!loading && cargoRows.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-center text-gray-500 py-10">
-                        Chưa có loại hàng để cấu hình.
-                      </TableCell>
-                    </TableRow>
-                  )}
+                  {warehouseRows.map((w) => {
+                    const mappedExists = cargoTypes.some((t) => t.name === w.cargoType);
+                    return (
+                      <TableRow key={w.key}>
+                        <TableCell className="font-semibold">{w.label}</TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            step={1}
+                            value={rateFor(w.cargoType)}
+                            onChange={(e) => setRateFor(w.cargoType, Number(e.target.value))}
+                            disabled={!mappedExists}
+                          />
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {w.cargoType}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

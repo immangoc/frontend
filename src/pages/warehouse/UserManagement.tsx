@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import WarehouseLayout from '../../components/warehouse/WarehouseLayout';
 import {
-  Users, Plus, Edit, Trash2, Search, Shield, Mail, Phone, Building, RefreshCw, AlertCircle,
+  Users, Plus, Eye, Search, Shield, Mail, Phone, Building, RefreshCw, AlertCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -29,6 +29,7 @@ interface User {
   phone: string;
   company: string;
   role: 'admin' | 'planner' | 'operator' | 'customer';
+  status?: 'active' | 'inactive' | string;
   created_at: string;
   last_sign_in_at?: string;
 }
@@ -42,7 +43,13 @@ const ROLE_MAP: Record<string, { label: string; color: string }> = {
 
 const EMPTY_FORM = { name: '', email: '', phone: '', company: '', role: 'customer' as User['role'], password: '' };
 
-export default function UserManagement({ showLayout = true }: { showLayout?: boolean }) {
+export default function UserManagement({
+  showLayout = true,
+  hideHeaderTitle = false,
+}: {
+  showLayout?: boolean;
+  hideHeaderTitle?: boolean;
+}) {
   const { accessToken, user: currentUser } = useWarehouseAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,19 +133,6 @@ export default function UserManagement({ showLayout = true }: { showLayout?: boo
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (id === currentUser?.id) return alert('Không thể xóa tài khoản của chính mình!');
-    if (!confirm(`Bạn có chắc chắn muốn xóa người dùng "${name}"?`)) return;
-    try {
-      const res = await fetch(`${apiUrl}/users/${id}`, { method: 'DELETE', headers });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Lỗi xóa người dùng');
-      setUsers(prev => prev.filter(u => u.id !== id));
-    } catch (err: any) {
-      alert('Lỗi: ' + err.message);
-    }
-  };
-
   const roleStats = {
     admin: users.filter(u => u.role === 'admin').length,
     planner: users.filter(u => u.role === 'planner').length,
@@ -146,13 +140,25 @@ export default function UserManagement({ showLayout = true }: { showLayout?: boo
     customer: users.filter(u => u.role === 'customer').length,
   };
 
+  const statusBadge = (status?: string) => {
+    const s = (status || 'active').toLowerCase();
+    if (s === 'inactive' || s === 'locked' || s === 'disabled') {
+      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Đã khóa</Badge>;
+    }
+    return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Đang hoạt động</Badge>;
+  };
+
   const content = (
     <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Quản lý Người dùng</h2>
-            <p className="text-gray-600 dark:text-gray-400">Dữ liệu thời gian thực từ Supabase Auth</p>
+            {!hideHeaderTitle && (
+              <>
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Quản lý Người dùng</h2>
+                <p className="text-gray-600 dark:text-gray-400">Dữ liệu thời gian thực từ Supabase Auth</p>
+              </>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={fetchUsers} disabled={loading}>
@@ -169,9 +175,9 @@ export default function UserManagement({ showLayout = true }: { showLayout?: boo
               </DialogTrigger>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>{editingUser ? 'Chỉnh sửa Người dùng' : 'Thêm Người dùng mới'}</DialogTitle>
+                  <DialogTitle>{editingUser ? 'Chi tiết người dùng' : 'Thêm Người dùng mới'}</DialogTitle>
                   <DialogDescription>
-                    {editingUser ? 'Cập nhật vai trò người dùng trong hệ thống' : 'Tạo tài khoản người dùng mới'}
+                    {editingUser ? 'Xem thông tin và cập nhật vai trò (nếu cần)' : 'Tạo tài khoản người dùng mới'}
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -199,6 +205,12 @@ export default function UserManagement({ showLayout = true }: { showLayout?: boo
                       </Select>
                     </div>
                   </div>
+                  {editingUser && (
+                    <div className="space-y-2">
+                      <Label>Trạng thái</Label>
+                      <div>{statusBadge(editingUser.status)}</div>
+                    </div>
+                  )}
                   {!editingUser && (
                     <>
                       <div className="space-y-2">
@@ -311,7 +323,7 @@ export default function UserManagement({ showLayout = true }: { showLayout?: boo
                       <TableHead>Số điện thoại</TableHead>
                       <TableHead>Công ty</TableHead>
                       <TableHead>Vai trò</TableHead>
-                      <TableHead>Đăng nhập cuối</TableHead>
+                      <TableHead>Trạng thái</TableHead>
                       <TableHead className="text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -341,21 +353,17 @@ export default function UserManagement({ showLayout = true }: { showLayout?: boo
                             {ROLE_MAP[user.role]?.label || user.role}
                           </span>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-500">
-                          {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString('vi-VN') : 'Chưa đăng nhập'}
-                        </TableCell>
+                        <TableCell className="text-sm text-gray-500">{statusBadge(user.status)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => handleEdit(user)}
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50" title="Đổi vai trò">
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm"
-                              onClick={() => handleDelete(user.id, user.name || user.email)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              disabled={user.id === currentUser?.id}
-                              title="Xóa người dùng">
-                              <Trash2 className="w-4 h-4" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(user)}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              title="Xem chi tiết"
+                            >
+                              <Eye className="w-4 h-4" />
                             </Button>
                           </div>
                         </TableCell>

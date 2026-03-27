@@ -61,6 +61,7 @@ export default function AdminShippingCompaniesSection() {
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [editing, setEditing] = useState<ShippingCompany | null>(null);
+  const [tempId, setTempId] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -114,11 +115,12 @@ export default function AdminShippingCompaniesSection() {
   const submitCreate = async () => {
     try {
       if (!form.name.trim()) return alert('Tên hãng tàu không được để trống');
-      const payload = { ...form };
+      const payload = { name: form.name };
       const res = await fetch(`${apiUrl}/shipping-companies`, { method: 'POST', headers, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Lỗi thêm hãng tàu');
       setOpenCreate(false);
+      setTempId('');
       setForm({ name: '', phone: '', email: '', address: '' });
       await fetchItems();
     } catch (e: any) {
@@ -141,7 +143,7 @@ export default function AdminShippingCompaniesSection() {
     if (!editing) return;
     try {
       if (!form.name.trim()) return alert('Tên hãng tàu không được để trống');
-      const payload = { ...form };
+      const payload = { name: form.name };
       const res = await fetch(`${apiUrl}/shipping-companies/${editing.id}`, { method: 'PATCH', headers, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Lỗi cập nhật hãng tàu');
@@ -208,7 +210,11 @@ export default function AdminShippingCompaniesSection() {
                 open={openCreate}
                 onOpenChange={(o) => {
                   setOpenCreate(o);
-                  if (!o) setForm({ name: '', phone: '', email: '', address: '' });
+                  if (o) setTempId(crypto.randomUUID());
+                  if (!o) {
+                    setTempId('');
+                    setForm({ name: '', phone: '', email: '', address: '' });
+                  }
                 }}
               >
                 <DialogTrigger asChild>
@@ -224,20 +230,16 @@ export default function AdminShippingCompaniesSection() {
                   </DialogHeader>
                   <div className="space-y-3">
                     <div className="space-y-2">
+                      <div className="text-sm font-medium text-gray-700">Mã (ID)</div>
+                      <Input value={tempId} disabled className="font-mono text-xs" />
+                    </div>
+                    <div className="space-y-2">
                       <div className="text-sm font-medium text-gray-700">Tên hãng tàu</div>
-                      <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="VD: Ocean Star" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-700">Số điện thoại</div>
-                      <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="VD: 028-..." />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-700">Email</div>
-                      <Input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="VD: support@..." />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-700">Địa chỉ</div>
-                      <Input value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} placeholder="VD: TP.HCM" />
+                      <Input
+                        value={form.name}
+                        onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                        placeholder="VD: Ocean Star"
+                      />
                     </div>
                   </div>
                   <DialogFooter>
@@ -332,18 +334,6 @@ export default function AdminShippingCompaniesSection() {
                 <div className="space-y-2">
                   <div className="text-sm font-medium text-gray-700">Tên hãng tàu</div>
                   <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-700">Số điện thoại</div>
-                  <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-700">Email</div>
-                  <Input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-700">Địa chỉ</div>
-                  <Input value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
                 </div>
               </div>
             )}

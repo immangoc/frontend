@@ -218,17 +218,44 @@ async function autoSeedOnStartup() {
     // ── Seed containers ───────────────────────────────────────────
     const existing = await sList(BUCKET_CONTAINERS);
     if (existing.length === 0) {
-      const now = new Date().toISOString();
-      for (const c of DEMO_CONTAINERS) {
+      const now = new Date();
+      const seedCount = 36; // đủ để demo biểu đồ theo tháng/ngày
+
+      for (let i = 0; i < seedCount; i++) {
+        const template = DEMO_CONTAINERS[i % DEMO_CONTAINERS.length];
         const id = crypto.randomUUID();
+
+        // Trải dữ liệu lùi về quá khứ để các bộ lọc theo ngày/tháng có số liệu.
+        const createdAt = new Date(now.getTime() - (seedCount - 1 - i) * 24 * 60 * 60 * 1000 * 14);
+        const exportAt = template.status === 'exported'
+          ? new Date(createdAt.getTime() + (6 + (i % 7)) * 24 * 60 * 60 * 1000)
+          : undefined;
+
+        const broken = template.status === 'exported' ? i % 6 === 0 || i % 10 === 0 : false;
+        const export_delay_days = template.status === 'exported' ? (i % 7) : 0;
+
+        const customer_id = template.customer_id && template.customer_id.trim() ? template.customer_id : 'u-customer';
+        const container_number = `${template.container_number}-${i + 1}`;
+
         await sSet(BUCKET_CONTAINERS, id, {
-          id, ...c, notes: '',
-          position: `${c.zone}-${c.block}-${c.slot}`,
-          created_by: 'u-admin', created_by_name: 'Nguyễn Hùng Thủy',
-          created_at: now, updated_at: now,
+          id,
+          ...template,
+          container_number,
+          customer_id,
+          notes: '',
+          position: `${template.zone}-${template.block}-${template.slot}`,
+          created_by: 'u-admin',
+          created_by_name: 'Nguyễn Hùng Thủy',
+          created_at: createdAt.toISOString(),
+          updated_at: createdAt.toISOString(),
+          ...(exportAt && template.status === 'exported' ? { export_date: exportAt.toISOString() } : {}),
+          broken,
+          broken_type: broken ? template.cargo_type : '',
+          export_delay_days,
         });
       }
-      console.log(`✅ Seeded ${DEMO_CONTAINERS.length} containers`);
+
+      console.log(`✅ Seeded ${seedCount} containers (demo)`);
     }
 
     // ── Seed container types ──────────────────────────────────────
@@ -373,6 +400,61 @@ async function autoSeedOnStartup() {
         await sSet(BUCKET_SCHEDULES, id, { id, ...s, created_at: now, updated_at: now });
       }
       console.log('✅ Seeded schedules');
+    }
+
+    // ── Seed notifications for demo ─────────────────────────────────
+    const existingNotifs = await sList(BUCKET_NOTIFICATIONS);
+    if (existingNotifs.length === 0) {
+      const now = new Date();
+      const seeds = [
+        {
+          title: 'Cảnh báo kho đầy',
+          message: 'Số lượng container trong kho đang tiến gần ngưỡng sức chứa. Hãy kiểm tra khu vực A/B.',
+          type: 'warning',
+          read: false,
+        },
+        {
+          title: 'Đơn hàng mới',
+          message: 'Có 3 đơn hàng mới vừa được tạo và đang chờ xử lý.',
+          type: 'info',
+          read: false,
+        },
+        {
+          title: 'Lệnh nhập thành công',
+          message: 'Lệnh nhập kho theo lịch hôm nay đã hoàn tất.',
+          type: 'info',
+          read: true,
+        },
+        {
+          title: 'Lệnh xuất thành công',
+          message: 'Lệnh xuất hàng đã được xác nhận hoàn tất.',
+          type: 'info',
+          read: true,
+        },
+        {
+          title: 'Cảnh báo hàng hỏng',
+          message: 'Một số container có dấu hiệu hỏng/rách. Vui lòng kiểm tra trước khi xuất.',
+          type: 'error',
+          read: false,
+        },
+      ];
+
+      for (let i = 0; i < seeds.length; i++) {
+        const n = seeds[i];
+        const id = crypto.randomUUID();
+        const created_at = new Date(now.getTime() - i * 7 * 60 * 1000).toISOString();
+        await sSet(BUCKET_NOTIFICATIONS, id, {
+          id,
+          title: n.title,
+          message: n.message,
+          type: n.type,
+          read: n.read,
+          archived: false,
+          created_at,
+          created_by: 'u-admin',
+        });
+      }
+      console.log('✅ Seeded demo notifications');
     }
 
     console.log('🚀 Hùng Thủy server ready — database pre-seeded');
@@ -625,6 +707,19 @@ app.put('/make-server-ce1eb60c/auth/preferences', authMiddleware, async (c) => {
     };
 
     await sSet(BUCKET_USERS, u.id, { ...existing, preferences: next, updated_at: new Date().toISOString() });
+
+    // Nhật ký hoạt động: ghi lại thay đổi preferences (ngôn ngữ / giao diện / kênh thông báo)
+    const logId = crypto.randomUUID();
+    await sSet(BUCKET_ACTIVITIES, logId, {
+      id: logId,
+      user_id: u.id,
+      user_name: existing.name,
+      action_type: 'update',
+      entity_type: 'preferences',
+      entity_id: u.id,
+      description: `Cập nhật preferences: language=${next.language}, theme=${next.theme}`,
+      created_at: new Date().toISOString(),
+    });
     return c.json({ message: 'Cập nhật preferences thành công', preferences: next });
   } catch (e: any) {
     return c.json({ error: 'Lỗi cập nhật preferences: ' + e.message }, 500);

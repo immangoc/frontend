@@ -59,10 +59,19 @@ export function WarehouseAuthProvider({ children }: { children: ReactNode }) {
   // Khôi phục session từ localStorage khi app load
   useEffect(() => {
     const savedToken = localStorage.getItem(TOKEN_KEY);
-    const savedUser  = localStorage.getItem(USER_KEY);
+    const savedUser = localStorage.getItem(USER_KEY);
     if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+      try {
+        const parsedUser = JSON.parse(savedUser) as AuthUser;
+        setToken(savedToken);
+        setUser(parsedUser);
+      } catch {
+        // Nếu localStorage bị hỏng thì xóa để user đăng nhập lại bình thường.
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+        setToken(null);
+        setUser(null);
+      }
     }
     setLoading(false);
   }, []);

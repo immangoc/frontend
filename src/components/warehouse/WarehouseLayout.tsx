@@ -11,7 +11,6 @@ import {
   LogOut,
   Menu,
   X,
-  Bell,
   Search,
   Calendar,
   FileText,
@@ -20,6 +19,8 @@ import {
 } from 'lucide-react';
 import HungThuyLogo from './HungThuyLogo';
 import { useWarehouseAuth } from '../../contexts/WarehouseAuthContext';
+import NotificationsBell from './NotificationsBell';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 interface WarehouseLayoutProps {
   children: ReactNode;
@@ -29,7 +30,7 @@ export default function WarehouseLayout({ children }: WarehouseLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useWarehouseAuth();
+  const { user, logout, accessToken } = useWarehouseAuth();
 
   // Get user role and name from context
   const userRole = user?.role || 'customer';
@@ -67,9 +68,10 @@ export default function WarehouseLayout({ children }: WarehouseLayoutProps) {
       { name: 'Lập lịch trình', path: '/warehouse/schedule', icon: Calendar, roles: ['planner'] },
       
       // Customer items
-      { name: 'Container của tôi', path: '/warehouse/my-containers', icon: Package, roles: ['customer'] },
-      { name: 'Đơn hàng', path: '/warehouse/orders', icon: FileText, roles: ['customer'] },
-      { name: 'Thanh toán', path: '/warehouse/payments', icon: DollarSign, roles: ['customer'] },
+      { name: 'Tài khoản', path: '/warehouse/customer/account', icon: Users, roles: ['customer'] },
+      { name: 'Container của tôi', path: '/warehouse/customer/my-containers', icon: Package, roles: ['customer'] },
+      { name: 'Đơn hàng', path: '/warehouse/customer/orders', icon: FileText, roles: ['customer'] },
+      { name: 'Tra cứu & tiện ích', path: '/warehouse/customer/payments', icon: DollarSign, roles: ['customer'] },
     ];
 
     return allItems.filter(item => {
@@ -167,6 +169,64 @@ export default function WarehouseLayout({ children }: WarehouseLayoutProps) {
     logout();
     navigate('/');
   };
+
+  // Apply saved theme (light/dark) globally so all pages switch instantly.
+  useEffect(() => {
+    const applyTheme = (theme?: string | null) => {
+      const t = theme || 'light';
+      document.documentElement.classList.toggle('dark', t === 'dark');
+      try {
+        localStorage.setItem('ht_ui_theme', t);
+      } catch {
+        // ignore
+      }
+    };
+
+    // Prefer localStorage for immediate UX.
+    try {
+      const saved = localStorage.getItem('ht_ui_theme');
+      if (saved) applyTheme(saved);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Sync theme/language from backend preferences (when logged in).
+  useEffect(() => {
+    if (!accessToken) return;
+    const apiUrl = `https://${projectId}.supabase.co/functions/v1/make-server-ce1eb60c`;
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken || publicAnonKey}`,
+    };
+
+    (async () => {
+      try {
+        const res = await fetch(`${apiUrl}/auth/preferences`, { headers });
+        const data = await res.json();
+        if (!res.ok) return;
+
+        const prefs = data?.preferences;
+        if (prefs?.theme) {
+          document.documentElement.classList.toggle('dark', prefs.theme === 'dark');
+          try {
+            localStorage.setItem('ht_ui_theme', prefs.theme);
+          } catch {
+            // ignore
+          }
+        }
+        if (prefs?.language) {
+          try {
+            localStorage.setItem('ht_ui_lang', prefs.language);
+          } catch {
+            // ignore
+          }
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [accessToken]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -322,10 +382,7 @@ export default function WarehouseLayout({ children }: WarehouseLayoutProps) {
               </div>
 
               {/* Notifications */}
-              <button className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                <Bell size={20} />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <NotificationsBell />
               
               {/* Quick Action Button */}
               {userRole === 'admin' && (

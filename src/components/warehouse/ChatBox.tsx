@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageCircle, X, Send, Bot, User, Phone, Mail, Headphones } from 'lucide-react';
 
@@ -9,39 +9,108 @@ interface Message {
   time: string;
 }
 
-const botResponses: Record<string, string> = {
-  default: 'Xin chào! Tôi là trợ lý ảo của Hùng Thủy. Tôi có thể giúp gì cho bạn?',
-  xin_chao: 'Chào bạn! Công ty Vận tải Cảng biển Hùng Thủy rất vui được phục vụ bạn. Bạn cần hỗ trợ về dịch vụ nào?',
-  dich_vu: 'Chúng tôi cung cấp các dịch vụ:\n• Quản lý kho bãi container\n• Vận chuyển hàng hóa đường biển\n• Thủ tục hải quan\n• Logistics tích hợp\n\nBạn quan tâm đến dịch vụ nào?',
-  lien_he: 'Thông tin liên hệ:\n📞 Hotline: 1900-HUNG-THUY\n📧 Email: info@hungthuy.com\n🏢 Địa chỉ: Khu Cảng Cát Lái, Q.2, TP.HCM\n\nHoặc bạn có thể điền form liên hệ trên website.',
-  gia: 'Để nhận báo giá chính xác, vui lòng liên hệ phòng kinh doanh:\n📞 028-3944-5678\n📧 sales@hungthuy.com\n\nChúng tôi sẽ phản hồi trong vòng 24 giờ làm việc.',
-  theo_doi: 'Để theo dõi container, bạn cần:\n1. Đăng nhập vào hệ thống\n2. Vào mục "Quản lý Container"\n3. Nhập số container\n\nBạn đã có tài khoản chưa?',
-  dang_ky: 'Bạn có thể đăng ký tài khoản tại:\n👉 /warehouse/register\n\nSau khi đăng ký, đội ngũ của chúng tôi sẽ kích hoạt tài khoản và hỗ trợ bạn.',
-};
+type RecipientType = 'customer' | 'dispatcher' | 'warehouse';
 
-function getResponse(text: string): string {
+type DemoCustomer = { id: string; name: string };
+const demoCustomers: DemoCustomer[] = [
+  { id: 'u-customer', name: 'Phạm Thị Lan' },
+  { id: 'u-customer-2', name: 'Trần Anh Tuấn' },
+  { id: 'u-customer-3', name: 'Nguyễn Thị Mai' },
+];
+
+const botResponses = {
+  customer: {
+    default: 'Xin chào! Tôi là trợ lý ảo Hùng Thủy. Bạn cần hỗ trợ về đơn hàng/container nào?',
+    hello: 'Chào bạn! Mình có thể giúp tra cứu, cập nhật trạng thái hoặc hướng dẫn thao tác trong hệ thống.',
+    schedule: 'Nếu bạn cần theo dõi lịch trình, hãy cho mình biết mã container hoặc tên hãng tàu.',
+    broken: 'Hiện hệ thống ghi nhận một số container có dấu hiệu hỏng. Bạn muốn kiểm tra theo container hay theo loại hàng?',
+    storage: 'Bạn muốn xem tồn kho theo zone hay theo loại container?',
+  },
+  dispatcher: {
+    default: 'Chào anh/chị, tôi là trợ lý điều phối. Mình có thể hỗ trợ xem lịch & tình trạng xuất/nhập theo ngày.',
+    hello: 'Điều phối đã sẵn sàng. Anh/chị muốn kiểm tra lịch nhập hay lịch xuất?',
+    schedule: 'Anh/chị cho mình biết khoảng thời gian (từ/ngày đến/ngày) để tổng hợp.',
+    broken: 'Có một vài cảnh báo liên quan hàng hỏng. Mình có thể tổng hợp theo loại hàng để anh/chị duyệt.',
+    storage: 'Tồn kho theo zone có thể xem trong báo cáo/thống kê. Anh/chị cần khoảng thời gian nào?',
+  },
+  warehouse: {
+    default: 'Chào anh/chị, tôi là trợ lý kho. Mình có thể hỗ trợ kiểm tra tồn kho, khu vực và trạng thái container.',
+    hello: 'Kho đã sẵn sàng. Anh/chị muốn xem tồn kho theo zone hay theo loại container?',
+    schedule: 'Để lên lịch thao tác, mình cần khung thời gian và khu vực (A/B/C/D).',
+    broken: 'Về hàng hỏng: mình có thể lọc những container có cảnh báo để đội kiểm tra xử lý.',
+    storage: 'Anh/chị muốn xem tồn kho theo khu vực hay theo loại hàng?',
+  },
+} as const;
+
+function getResponse(text: string, recipient: RecipientType, customerName?: string): string {
   const t = text.toLowerCase();
-  if (t.includes('chào') || t.includes('hello') || t.includes('hi')) return botResponses.xin_chao;
-  if (t.includes('dịch vụ') || t.includes('service')) return botResponses.dich_vu;
-  if (t.includes('liên hệ') || t.includes('contact') || t.includes('số điện thoại') || t.includes('địa chỉ')) return botResponses.lien_he;
-  if (t.includes('giá') || t.includes('báo giá') || t.includes('chi phí') || t.includes('phí')) return botResponses.gia;
-  if (t.includes('theo dõi') || t.includes('tracking') || t.includes('container')) return botResponses.theo_doi;
-  if (t.includes('đăng ký') || t.includes('register') || t.includes('tài khoản')) return botResponses.dang_ky;
-  return 'Cảm ơn bạn đã liên hệ! Để được hỗ trợ tốt hơn, vui lòng gọi hotline: 📞 1900-HUNG-THUY hoặc email: info@hungthuy.com. Chúng tôi sẽ phản hồi ngay!';
+  const dict = recipient === 'customer' ? botResponses.customer : recipient === 'dispatcher' ? botResponses.dispatcher : botResponses.warehouse;
+
+  if (t.includes('chào') || t.includes('hello') || t.includes('hi')) return dict.hello;
+  if (t.includes('lịch') || t.includes('schedule') || t.includes('xuất') || t.includes('nhập')) return dict.schedule;
+  if (t.includes('hỏng') || t.includes('broken') || t.includes('phạt') || t.includes('đền')) return dict.broken;
+  if (t.includes('tồn') || t.includes('kho') || t.includes('storage')) return dict.storage;
+
+  if (recipient === 'customer' && customerName) {
+    return `${dict.default}\n\nKhi cần, bạn có thể nhắn: “Kiểm tra container của ${customerName}”.`;
+  }
+  return dict.default;
 }
 
-const quickReplies = ['Dịch vụ cung cấp', 'Báo giá', 'Theo dõi container', 'Liên hệ'];
+function quickRepliesFor(recipient: RecipientType, customerName?: string) {
+  if (recipient === 'dispatcher') return ['Kiểm tra lịch nhập', 'Kiểm tra lịch xuất', 'Tổng hợp hàng hỏng', 'Báo cáo tồn kho'];
+  if (recipient === 'warehouse') return ['Xem tồn kho theo zone', 'Lọc container hàng hỏng', 'Thông tin giao ca', 'Kiểm tra lệnh xuất'];
+  return [`Kiểm tra trạng thái container của ${customerName || 'tôi'}`, 'Theo dõi lịch trình', 'Báo cáo hàng hỏng', 'Cần hỗ trợ thủ tục'];
+}
 
 export default function ChatBox() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: 'Xin chào! Tôi là trợ lý ảo của **Hùng Thủy**. Tôi có thể giúp gì cho bạn? 👋',
-      sender: 'bot',
-      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);
+  const [recipientType, setRecipientType] = useState<RecipientType>('customer');
+  const [customerId, setCustomerId] = useState(demoCustomers[0].id);
+
+  const activeCustomer = useMemo(
+    () => demoCustomers.find((c) => c.id === customerId) || demoCustomers[0],
+    [customerId],
+  );
+  const activeKey = recipientType === 'customer' ? `customer:${activeCustomer.id}` : recipientType;
+
+  const [threads, setThreads] = useState<Record<string, Message[]>>(() => {
+    const c = demoCustomers[0];
+    return {
+      [`customer:${c.id}`]: [
+        {
+          id: 1,
+          text: `Xin chào! Tôi là trợ lý ảo của **Hùng Thủy**. Bạn muốn nhắn với khách hàng nào?`,
+          sender: 'bot',
+          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        },
+      ],
+    };
+  });
+  const messages = threads[activeKey] || [];
+  const [customerQuery, setCustomerQuery] = useState('');
+  const filteredCustomers = useMemo(() => {
+    const query = customerQuery.trim().toLowerCase();
+    if (!query) return demoCustomers;
+    return demoCustomers.filter((customer) => customer.name.toLowerCase().includes(query));
+  }, [customerQuery]);
+
+  // Ensure each recipient has its own chat thread for demo.
+  useEffect(() => {
+    setThreads((prev) => {
+      if (prev[activeKey]) return prev;
+      const recipientLabel = recipientType === 'customer' ? 'khách hàng' : recipientType === 'dispatcher' ? 'điều phối' : 'nhân viên kho';
+      const nextMsgs: Message[] = [
+        {
+          id: 1,
+          text: `Xin chào! Tôi là trợ lý ảo Hùng Thủy. Bạn muốn nhắn với ${recipientLabel}?`,
+          sender: 'bot',
+          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        },
+      ];
+      return { ...prev, [activeKey]: nextMsgs };
+    });
+  }, [activeKey, recipientType, activeCustomer.name]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -60,6 +129,10 @@ export default function ChatBox() {
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
 
+    const keyAtSend = activeKey;
+    const recipientAtSend = recipientType;
+    const customerNameAtSend = activeCustomer.name;
+
     const userMsg: Message = {
       id: Date.now(),
       text: text.trim(),
@@ -67,7 +140,10 @@ export default function ChatBox() {
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    setThreads((prev) => ({
+      ...prev,
+      [keyAtSend]: [...(prev[keyAtSend] || []), userMsg],
+    }));
     setInputText('');
     setIsTyping(true);
 
@@ -75,13 +151,16 @@ export default function ChatBox() {
 
     const botMsg: Message = {
       id: Date.now() + 1,
-      text: getResponse(text),
+      text: getResponse(text, recipientAtSend, recipientAtSend === 'customer' ? customerNameAtSend : undefined),
       sender: 'bot',
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     };
 
     setIsTyping(false);
-    setMessages(prev => [...prev, botMsg]);
+    setThreads((prev) => ({
+      ...prev,
+      [keyAtSend]: [...(prev[keyAtSend] || []), botMsg],
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -99,8 +178,8 @@ export default function ChatBox() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="w-[340px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
-            style={{ height: '480px' }}
+            className="w-[460px] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
+            style={{ height: '560px' }}
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-4 flex items-center justify-between">
@@ -129,6 +208,51 @@ export default function ChatBox() {
                 >
                   <X className="w-4 h-4 text-white" />
                 </button>
+              </div>
+            </div>
+
+            {/* Recipient selector (demo) */}
+            <div className="p-3 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-200">Nhắn tới</div>
+                  <select
+                    value={recipientType}
+                    onChange={(e) => setRecipientType(e.target.value as RecipientType)}
+                    className="text-xs px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                  >
+                    <option value="customer">Khách hàng</option>
+                    <option value="dispatcher">Điều phối</option>
+                    <option value="warehouse">Nhân viên kho</option>
+                  </select>
+                </div>
+
+                {recipientType === 'customer' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs font-semibold text-gray-600 dark:text-gray-200">Tìm khách hàng</div>
+                      <span className="text-xs text-gray-400">{filteredCustomers.length} kết quả</span>
+                    </div>
+                    <input
+                      value={customerQuery}
+                      onChange={(e) => setCustomerQuery(e.target.value)}
+                      placeholder="Nhập tên khách hàng"
+                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-3 py-2 text-sm"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {filteredCustomers.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() => setCustomerId(customer.id)}
+                          className={`text-xs px-3 py-1.5 rounded-full border ${customerId === customer.id ? 'bg-blue-900 text-white border-blue-900' : 'bg-white text-gray-700 border-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:border-gray-700'}`}
+                        >
+                          {customer.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -188,7 +312,7 @@ export default function ChatBox() {
 
             {/* Quick Replies */}
             <div className="px-3 py-2 bg-white border-t border-gray-100 flex gap-1.5 overflow-x-auto">
-              {quickReplies.map((reply) => (
+              {quickRepliesFor(recipientType, activeCustomer.name).map((reply) => (
                 <button
                   key={reply}
                   onClick={() => sendMessage(reply)}

@@ -32,6 +32,7 @@ export default function AdminContainerTypesSection() {
   const [editing, setEditing] = useState<TypeItem | null>(null);
 
   const [formName, setFormName] = useState('');
+  const [tempId, setTempId] = useState<string>('');
 
   const fetchItems = async () => {
     setLoading(true);
@@ -165,7 +166,17 @@ export default function AdminContainerTypesSection() {
                 <Wand2 className={`w-4 h-4 mr-2 ${seedLoading ? 'animate-spin' : ''}`} />
                 {seedLoading ? 'Đang seed...' : 'Khởi tạo demo'}
               </Button>
-              <Dialog open={openCreate} onOpenChange={(o) => (setOpenCreate(o), !o && setFormName(''))}>
+              <Dialog
+                open={openCreate}
+                onOpenChange={(o) => {
+                  setOpenCreate(o);
+                  if (o) setTempId(crypto.randomUUID());
+                  if (!o) {
+                    setTempId('');
+                    setFormName('');
+                  }
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button className="bg-blue-900 hover:bg-blue-800 text-white">
                     <Plus className="w-4 h-4 mr-2" />
@@ -178,6 +189,10 @@ export default function AdminContainerTypesSection() {
                     <DialogDescription>Nhập tên loại container mới.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-2">
+                    <div className="text-sm font-medium text-gray-700">Mã (ID)</div>
+                    <Input value={tempId} disabled className="font-mono text-xs" />
+                  </div>
+                  <div className="space-y-2 mt-3">
                     <div className="text-sm font-medium text-gray-700">Tên loại</div>
                     <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="VD: 20ft" />
                   </div>
