@@ -3,3 +3,5 @@
 @import 'tw-animate-css';
 @import './styles/globals.css';
 @import './styles/warehouse-management.css';
+@import './3d/index.css';
+@import './3d/App.css';

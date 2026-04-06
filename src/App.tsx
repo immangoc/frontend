@@ -32,6 +32,9 @@ import ContactPage from './pages/ContactPage';
 import NewsPage from './pages/NewsPage';
 import ManagementSystemPage from './pages/ManagementSystemPage';
 
+// 3D Yard Management
+import YardApp from './3d/YardApp';
+
 export default function App() {
   return (
     <WarehouseAuthProvider>
@@ -151,6 +154,16 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['customer']}>
                 <Payments />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 3D Yard Management */}
+          <Route
+            path="/warehouse/yard/*"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'planner', 'operator']}>
+                <YardApp />
               </ProtectedRoute>
             }
           />

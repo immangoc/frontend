@@ -18,7 +18,7 @@ const navGroups = [
       { label: 'Hãng Tàu', to: '/warehouse/admin/section/quan-ly-hang-tau', icon: 'ship' },
       { label: 'Lịch Trình', to: '/warehouse/admin/section/quan-ly-lich', icon: 'calendar' },
       { label: 'Cước Phí', to: '/warehouse/admin/section/quan-ly-cuoc-phi-bieu-cuoc', icon: 'dollar' },
-      { label: 'Quản lý kho', to: '/tong-quan', icon: 'warehouse' },
+      { label: 'Quản lý kho 3D', to: '/warehouse/yard/tong-quan', icon: 'warehouse' },
     ],
   },
   {
