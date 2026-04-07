@@ -5,9 +5,13 @@ import {
   ChevronDown,
   AlertTriangle,
   Anchor,
+  ArrowLeft,
+  Home,
+  LogOut,
 } from 'lucide-react';
-import { NavLink, useLocation } from 'react-router';
+import { NavLink, useLocation, Link } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useWarehouseAuth } from '../../../contexts/WarehouseAuthContext';
 import './Sidebar.css';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -36,14 +40,24 @@ const navItems = [
 export function Sidebar() {
   const location = useLocation();
   const user = useAuth();
-  const displayName = user?.username ?? 'Phạm Thị Lan';
+  const { user: mainUser, logout } = useWarehouseAuth();
+  const displayName = user?.username ?? mainUser?.name ?? 'Phạm Thị Lan';
   const displayRole = ROLE_LABELS[user?.role ?? ''] ?? 'Vận hành';
   const avatarChar = displayName.charAt(0).toUpperCase();
+
+  // Determine the admin dashboard path based on user role
+  const adminDashPath = mainUser?.role === 'admin'
+    ? '/warehouse/admin/dashboard'
+    : mainUser?.role === 'planner'
+    ? '/warehouse/planner/dashboard'
+    : mainUser?.role === 'operator'
+    ? '/warehouse/operator/dashboard'
+    : '/warehouse';
 
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <div className="logo-placeholder">
+        <Link to="/" className="logo-placeholder" style={{ textDecoration: 'none' }}>
           <div className="logo-icon">
             <Anchor size={18} strokeWidth={2.5} />
           </div>
@@ -51,7 +65,23 @@ export function Sidebar() {
             <span className="logo-name">Hùng Thủy</span>
             <span className="logo-sub">Port Logistics</span>
           </div>
-        </div>
+        </Link>
+      </div>
+
+      {/* Quick nav back */}
+      <div style={{ padding: '0 12px 8px', display: 'flex', gap: 6 }}>
+        <Link
+          to={adminDashPath}
+          style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', fontSize: 12, fontWeight: 600, color: '#64748b', background: '#f1f5f9', borderRadius: 8, textDecoration: 'none', transition: 'all 0.2s' }}
+        >
+          <ArrowLeft size={14} /> Admin
+        </Link>
+        <Link
+          to="/"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', fontSize: 12, fontWeight: 600, color: '#64748b', background: '#f1f5f9', borderRadius: 8, textDecoration: 'none', transition: 'all 0.2s' }}
+        >
+          <Home size={14} />
+        </Link>
       </div>
 
       <nav className="sidebar-nav">
@@ -106,6 +136,13 @@ export function Sidebar() {
             <p className="user-name">{displayName}</p>
             <span className="user-role-badge">{displayRole}</span>
           </div>
+          <button
+            onClick={() => { logout(); window.location.href = '/'; }}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}
+            title="Đăng xuất"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </aside>

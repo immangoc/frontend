@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X, ChevronDown, Ship, LogOut, Settings, LayoutDashboard } from 'lucide-react';
+import { Menu, X, ChevronDown, Ship, LogOut, Settings, LayoutDashboard, Box } from 'lucide-react';
 import { useWarehouseAuth } from '../contexts/WarehouseAuthContext';
 import HungThuyLogo from './warehouse/HungThuyLogo';
 import ChatBox from './warehouse/ChatBox';
@@ -148,6 +148,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                           <Settings className="w-4 h-4" />
                           Hệ thống quản lý
                         </Link>
+                        {user.role !== 'customer' && (
+                          <Link
+                            to="/warehouse/yard/tong-quan"
+                            onClick={() => setUserDropdown(false)}
+                            className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-900 transition-colors"
+                          >
+                            <Box className="w-4 h-4" />
+                            Quản lý kho 3D
+                          </Link>
+                        )}
                         <button
                           onClick={handleLogout}
                           className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100"
@@ -233,6 +243,15 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         <LayoutDashboard className="w-4 h-4" />
                         Dashboard
                       </Link>
+                      {user.role !== 'customer' && (
+                        <Link
+                          to="/warehouse/yard/tong-quan"
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-blue-900 font-medium hover:bg-blue-50 rounded-lg"
+                        >
+                          <Box className="w-4 h-4" />
+                          Quản lý kho 3D
+                        </Link>
+                      )}
                       <button
                         onClick={handleLogout}
                         className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded-lg"

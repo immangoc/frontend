@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { useWarehouseAuth, API_BASE } from '../../../contexts/WarehouseAuthContext';
 
 type ContainerStatusCount = { statusName: string; count: number };
@@ -95,6 +96,27 @@ export default function Dashboard() {
               <div>
                 <div className="stat-label">Gate-Out hôm nay</div>
                 <div className="stat-value">{dash.gateOutToday}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Access: 3D Yard Management */}
+          <div className="card" style={{ marginBottom: 16, background: 'linear-gradient(135deg, #0c4a6e 0%, #0369a1 100%)', color: 'white' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Quản lý kho 3D</div>
+                <div style={{ fontSize: 13, opacity: 0.85 }}>Trực quan hóa bãi container, sơ đồ 3D/2D, hạ bãi, xuất bãi, kiểm soát sự cố</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Link to="/warehouse/yard/tong-quan" className="btn btn-sm" style={{ background: 'white', color: '#0c4a6e', fontWeight: 600, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', fontSize: 13 }}>
+                  Tổng quan
+                </Link>
+                <Link to="/warehouse/yard/3d" className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', fontSize: 13, border: '1px solid rgba(255,255,255,0.3)' }}>
+                  Sơ đồ 3D
+                </Link>
+                <Link to="/warehouse/yard/2d" className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', fontSize: 13, border: '1px solid rgba(255,255,255,0.3)' }}>
+                  Sơ đồ 2D
+                </Link>
               </div>
             </div>
           </div>
