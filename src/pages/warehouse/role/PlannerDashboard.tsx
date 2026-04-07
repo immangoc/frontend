@@ -79,9 +79,9 @@ export default function PlannerDashboard() {
       if (dashRes.ok)  setDash(dashData.data);
       if (schedRes.ok) setSchedules(schedData.data || []);
       if (alertRes.ok) setAlerts(alertData.data?.content || alertData.data || []);
-      if (!dashRes.ok && !schedRes.ok) throw new Error(dashData.message || 'Lỗi tải dữ liệu');
+      if (!dashRes.ok && !schedRes.ok) throw new Error(dashData.message || 'L\u1ed7i t\u1ea3i d\u1eef li\u1ec7u');
     } catch (e: any) {
-      setError(e.message || 'Lỗi không xác định');
+      setError(e.message || 'L\u1ed7i kh\u00f4ng x\u00e1c \u0111\u1ecbnh');
     } finally {
       setLoading(false);
     }
@@ -93,10 +93,10 @@ export default function PlannerDashboard() {
   }, []);
 
   const stats = [
-    { title: 'Lịch trình', value: schedules.length, icon: Calendar, color: 'bg-blue-500' },
-    { title: 'Container trong kho', value: dash?.containersInYard ?? '—', icon: Container, color: 'bg-yellow-500' },
-    { title: 'Đơn hàng chờ', value: dash?.pendingOrders ?? '—', icon: Package, color: 'bg-green-500' },
-    { title: 'Cảnh báo', value: dash?.openAlerts ?? '—', icon: AlertCircle, color: 'bg-red-500' },
+    { title: 'L\u1ecbch tr\u00ecnh', value: schedules.length, icon: Calendar, color: 'bg-blue-500' },
+    { title: 'Container trong kho', value: dash?.containersInYard ?? '\u2014', icon: Container, color: 'bg-yellow-500' },
+    { title: '\u0110\u01a1n h\u00e0ng ch\u1edd', value: dash?.pendingOrders ?? '\u2014', icon: Package, color: 'bg-green-500' },
+    { title: 'C\u1ea3nh b\u00e1o', value: dash?.openAlerts ?? '\u2014', icon: AlertCircle, color: 'bg-red-500' },
   ];
 
   return (
@@ -104,20 +104,27 @@ export default function PlannerDashboard() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard Kế hoạch</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard K\u1ebf ho\u1ea1ch</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Chào <span className="font-semibold">{user?.name}</span>
-              {schedules.length > 0 ? `, hôm nay có ${schedules.length} lịch trình.` : '.'}
+              Ch\u00e0o <span className="font-semibold">{user?.name}</span>
+              {schedules.length > 0 ? `, h\u00f4m nay c\u00f3 ${schedules.length} l\u1ecbch tr\u00ecnh.` : '.'}
             </p>
           </div>
           <div className="flex gap-3">
+            <a
+              href="/warehouse/yard/tong-quan"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white text-sm font-semibold rounded-lg hover:bg-cyan-700 transition-colors"
+            >
+              <MapPin className="w-4 h-4" />
+              Qu\u1ea3n l\u00fd kho 3D
+            </a>
             <Button variant="outline" onClick={fetchAll} disabled={loading}>
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Làm mới
+              L\u00e0m m\u1edbi
             </Button>
             <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
               <Calendar className="w-4 h-4" />
-              Tạo lịch trình
+              T\u1ea1o l\u1ecbch tr\u00ecnh
             </Button>
           </div>
         </div>
@@ -152,14 +159,14 @@ export default function PlannerDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="w-5 h-5" />
-              Lịch trình
+              L\u1ecbch tr\u00ecnh
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="py-8 text-center text-gray-500 text-sm">Đang tải...</div>
+              <div className="py-8 text-center text-gray-500 text-sm">\u0110ang t\u1ea3i...</div>
             ) : schedules.length === 0 ? (
-              <div className="py-8 text-center text-gray-500 text-sm">Chưa có lịch trình nào.</div>
+              <div className="py-8 text-center text-gray-500 text-sm">Ch\u01b0a c\u00f3 l\u1ecbch tr\u00ecnh n\u00e0o.</div>
             ) : (
               <div className="space-y-3">
                 {schedules.map((s, index) => (
@@ -207,7 +214,7 @@ export default function PlannerDashboard() {
                         )}
                       </div>
                     </div>
-                    <Button variant="outline" size="sm">Chi tiết</Button>
+                    <Button variant="outline" size="sm">Chi ti\u1ebft</Button>
                   </motion.div>
                 ))}
               </div>
@@ -220,14 +227,14 @@ export default function PlannerDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="w-5 h-5" />
-                Tình trạng kho bãi
+                T\u00ecnh tr\u1ea1ng kho b\u00e3i
               </CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="py-8 text-center text-gray-500 text-sm">Đang tải...</div>
+                <div className="py-8 text-center text-gray-500 text-sm">\u0110ang t\u1ea3i...</div>
               ) : !dash?.zoneOccupancy?.length ? (
-                <div className="py-8 text-center text-gray-500 text-sm">Chưa có dữ liệu kho bãi.</div>
+                <div className="py-8 text-center text-gray-500 text-sm">Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u kho b\u00e3i.</div>
               ) : (
                 <div className="space-y-4">
                   {dash.zoneOccupancy.slice(0, 6).map((zone, index) => (
@@ -240,7 +247,7 @@ export default function PlannerDashboard() {
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-gray-900 dark:text-white text-sm">
-                          {zone.yardName} — {zone.zoneName}
+                          {zone.yardName} \u2014 {zone.zoneName}
                         </span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
                           {zone.occupiedSlots} / {zone.capacitySlots}
@@ -258,8 +265,8 @@ export default function PlannerDashboard() {
                         />
                       </div>
                       <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                        <span>Công suất: {Math.round(zone.occupancyRate * 100)}%</span>
-                        <span>Còn trống: {zone.capacitySlots - zone.occupiedSlots} slot</span>
+                        <span>C\u00f4ng su\u1ea5t: {Math.round(zone.occupancyRate * 100)}%</span>
+                        <span>C\u00f2n tr\u1ed1ng: {zone.capacitySlots - zone.occupiedSlots} slot</span>
                       </div>
                     </motion.div>
                   ))}
@@ -272,14 +279,14 @@ export default function PlannerDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" />
-                Cảnh báo cần xử lý
+                C\u1ea3nh b\u00e1o c\u1ea7n x\u1eed l\u00fd
               </CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="py-8 text-center text-gray-500 text-sm">Đang tải...</div>
+                <div className="py-8 text-center text-gray-500 text-sm">\u0110ang t\u1ea3i...</div>
               ) : alerts.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 text-sm">Không có cảnh báo nào.</div>
+                <div className="py-8 text-center text-gray-500 text-sm">Kh\u00f4ng c\u00f3 c\u1ea3nh b\u00e1o n\u00e0o.</div>
               ) : (
                 <div className="space-y-3">
                   {alerts.map((a, index) => (
